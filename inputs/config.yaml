@@ -1,0 +1,162 @@
+# ============================================================
+#  EBM Thermal Modeling Tool — Simulation Configuration
+#  Material: Ti-6Al-4V (typical EBM parameters)
+# ============================================================
+
+simulation:
+  name: EBM_Ti64_example
+  mode: Solidification        # Snapshots | Solidification | T_history
+
+# ------------------------------------------------------------
+# Material properties
+# All temperatures in Kelvin; conductivity in W/m/K;
+# specific heat in J/kg/K; density in kg/m^3
+# ------------------------------------------------------------
+material:
+  T_init: 923.0               # K  preheat temperature (~650 °C, typical EBM Ti-6Al-4V)
+  T_liq:  1928.0              # K  liquidus temperature
+  k:      21.9                # W/m/K  thermal conductivity at ~900 K
+  cp:     670.0               # J/kg/K specific heat at ~900 K
+  rho:    4420.0              # kg/m^3 density
+
+  # CET (columnar-to-equiaxed transition) parameters — optional
+  # Remove or comment out if not needed
+  # cet:
+  #   N0: 8.0e12              # nuclei density (1/m^3)
+  #   n:  3.4
+  #   a:  1.25e6
+
+# ------------------------------------------------------------
+# Electron beam parameters
+# Widths / depth are 1/e^2 half-widths (Gaussian sigma × sqrt(2))
+# ------------------------------------------------------------
+beam:
+  power:      1000            # W   beam power
+  efficiency: 0.90            # –   absorption efficiency (EBM in vacuum ~0.85–0.95)
+  width_x:    300.0e-6        # m   beam half-width in x
+  width_y:    300.0e-6        # m   beam half-width in y (= width_x for circular beam)
+  depth_z:    150.0e-6        # m   beam penetration depth (keyhole depth estimate)
+
+# ------------------------------------------------------------
+# Scan path
+# Each row: [mode, x_mm, y_mm, z_mm, power_mod, param]
+#   mode=1  spot dwell   | param = dwell time (s)
+#   mode=0  line scan    | param = scan speed (m/s)
+# For large/complex paths, replace the list with:
+#   path:
+#     file: path.csv
+# ------------------------------------------------------------
+path:
+  - [1, 0,   0,   0, 0, 1.0e-4]   # park beam (power_mod=0)
+  - [0, 5,   0,   0, 1, 4.5]      # scan line 1 →
+  - [0, 5,   0.1, 0, 1, 4.5]      # step over
+  - [0, 0,   0.1, 0, 1, 4.5]      # scan line 2 ←
+  - [0, 0,   0.2, 0, 1, 4.5]      # step over
+  - [0, 5,   0.2, 0, 1, 4.5]      # scan line 3 →
+  - [0, 5,   0.3, 0, 1, 4.5]      # step over
+  - [0, 0,   0.3, 0, 1, 4.5]      # scan line 4 ←
+  - [0, 0,   0.4, 0, 1, 4.5]      # step over
+  - [0, 5,   0.4, 0, 1, 4.5]      # scan line 5 →
+  - [0, 5,   0.5, 0, 1, 4.5]      # step over
+  - [0, 0,   0.5, 0, 1, 4.5]      # scan line 6 ←
+  - [1, 0,   0.5, 0, 0, 1.0e-4]   # beam off
+
+# ------------------------------------------------------------
+# Computational domain
+# Bounds in metres. Omit a pair to auto-compute from scan path.
+# resolution sets the uniform grid spacing; use xres/yres/zres
+# to override per axis.
+# ------------------------------------------------------------
+domain:
+  x: [-1.0e-3,  6.0e-3]      # m  [xmin, xmax]
+  y: [-1.0e-3,  2.0e-3]      # m  [ymin, ymax]
+  z: [-1.0e-3,  0.0e-3]      # m  [zmin, zmax]   zmax=0 is the build surface
+  resolution: 50.0e-6         # m  uniform grid spacing (override with xres/yres/zres)
+
+  # Part geometry — defines which grid points are active (inside the part).
+  # Points outside the geometry (surrounding powder/vacuum) are excluded.
+  # Set type: null for a plain rectangular semi-infinite domain.
+  #
+  # Examples:
+  #   type: cylinder
+  #   center: [2.5e-3, 1.0e-3]   # [x, y] of cylinder axis (m)
+  #   radius: 2.0e-3              # m
+  #   z_range: [-3e-3, 0]        # optional axial extent (m); omit = domain z bounds
+  #
+  #   type: cubic
+  #   x: [0, 5e-3]
+  #   y: [0, 1e-3]
+  #   z: [-3e-3, 0]
+  #
+  #   type: wall
+  #   normal: y
+  #   center: [2.5e-3, 0.5e-3, -1.5e-3]
+  #   thickness: 0.5e-3
+  #   extents: [5e-3, 3e-3]       # [x-length, z-height]
+  geometry:
+    type: null
+
+# ------------------------------------------------------------
+# Boundary conditions
+# top_surface  : the powder-bed / vacuum interface (z = zmax)
+# side_walls   : x-faces and y-faces of the domain
+# bottom       : substrate / build plate (z = zmin)
+# reflections  : number of image-source generations for adiabatic walls
+# ------------------------------------------------------------
+boundary_conditions:
+  top_surface:
+    type:       radiation     # radiation | adiabatic
+    emissivity: 0.70          # –   surface emissivity of Ti-6Al-4V powder/solid
+    T_env:      923.0         # K   vacuum chamber + preheat temperature
+
+  side_walls:
+    type:       adiabatic     # adiabatic | radiation
+
+  bottom:
+    type:       fixed_T       # fixed_T | adiabatic | semi_infinite
+    value:      923.0         # K   build-plate temperature (= preheat)
+
+  reflections: 3              # image-source generations (3 is sufficient for most cases)
+
+# ------------------------------------------------------------
+# Mode-specific settings
+# Only the block matching `simulation.mode` is used.
+# ------------------------------------------------------------
+mode_settings:
+
+  solidification:
+    timestep:          1.0e-4   # s   time step
+    tracking:          Volume   # None | Volume | Surface
+    output_frequency:  50       # write output every N time steps
+    secondary:         false    # compute secondary solidification (H-vector)
+    sol_tolerance:     1.0e-3   # relative tolerance for liquidus root-finding
+    sol_max_iter:      10
+
+  snapshots:
+    times: [1.0e-3, 5.0e-3, 10.0e-3]   # s  or use '50%' for 50 % of scan time
+
+  t_history:
+    timestep: 1.0e-4            # s
+    probe_points:               # list of [x_m, y_m, z_m]
+      - [0.0025, 0.0005, 0.0]
+      - [0.0025, 0.0005, -0.0002]
+
+# ------------------------------------------------------------
+# Output
+# fields: any combination of x, y, z, T, G, Gx, Gy, Gz,
+#         V, dTdt, eqFrac, tSol, numMelt, depth
+# ------------------------------------------------------------
+output:
+  directory: Data
+  fields:    [x, y, z, T, G, V, dTdt]
+  vtk:       true               # also write .vts file for ParaView
+
+# ------------------------------------------------------------
+# Compute settings
+# ------------------------------------------------------------
+compute:
+  threads:      4               # number of parallel threads
+  compression:  true            # path-segment compression (faster for long paths)
+  r_max:        -1.0            # m  cutoff radius; -1 = auto-compute
+  t_hist:       1.0e-9          # peak-T cutoff ratio (integration early-termination)
+  p_hist:       1.0e-2          # solidus-to-preheat cutoff ratio

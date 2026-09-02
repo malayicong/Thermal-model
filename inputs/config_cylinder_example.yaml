@@ -1,0 +1,103 @@
+# ============================================================
+#  EBM Thermal Modeling Tool — Cylinder Geometry Example
+#  Material : Ti-6Al-4V
+#  Part     : vertical cylinder, r=2 mm, h=3 mm
+#
+#  This example shows how to restrict the computation to the
+#  interior of a cylindrical part.  Grid points outside the
+#  cylinder (surrounding powder) are automatically excluded.
+#  The cylinder wall is treated as adiabatic (zero heat flux
+#  to the surrounding powder bed).
+# ============================================================
+
+simulation:
+  name: EBM_Ti64_cylinder
+  mode: Solidification
+
+material:
+  T_init: 923.0
+  T_liq:  1928.0
+  k:      21.9
+  cp:     670.0
+  rho:    4420.0
+
+beam:
+  power:      1000
+  efficiency: 0.90
+  width_x:    300.0e-6
+  width_y:    300.0e-6
+  depth_z:    150.0e-6
+
+# Raster scan confined to the top face of the cylinder
+# (x in [0.5, 4.5] mm, y in [0.5, 1.5] mm to stay within r=2 mm)
+path:
+  - [1, 2.5,  1.0,  0, 0, 1.0e-4]   # park beam
+  - [0, 4.3,  1.0,  0, 1, 4.5]      # scan line 1 ->
+  - [0, 4.3,  1.2,  0, 1, 4.5]      # step over
+  - [0, 0.7,  1.2,  0, 1, 4.5]      # scan line 2 <-
+  - [0, 0.7,  1.4,  0, 1, 4.5]      # step over
+  - [0, 4.3,  1.4,  0, 1, 4.5]      # scan line 3 ->
+  - [0, 4.3,  1.6,  0, 1, 4.5]      # step over
+  - [0, 0.7,  1.6,  0, 1, 4.5]      # scan line 4 <-
+  - [1, 0.7,  1.6,  0, 0, 1.0e-4]   # beam off
+
+# Domain: rectangular box that tightly encloses the cylinder
+# The geometry block then restricts active points to the cylinder interior.
+domain:
+  x: [0.5e-3,  4.5e-3]      # m   [cx-r, cx+r] = [2.5-2, 2.5+2] mm
+  y: [-1.0e-3, 3.0e-3]      # m   [cy-r, cy+r] = [1.0-2, 1.0+2] mm
+  z: [-3.0e-3,  0.0e-3]     # m   full 3 mm height
+  resolution: 100.0e-6       # m   100 um grid (coarser = faster)
+
+  # Cylinder geometry: only points inside this cylinder are simulated
+  geometry:
+    type:   cylinder
+    center: [2.5e-3, 1.0e-3]  # [x, y] of cylinder axis (m)
+    radius: 2.0e-3             # m
+    # z_range omitted -> uses full domain z extent
+
+boundary_conditions:
+  top_surface:
+    type:       radiation
+    emissivity: 0.70
+    T_env:      923.0
+
+  side_walls:
+    type:       adiabatic     # domain box walls (outside the cylinder anyway)
+
+  bottom:
+    type:       fixed_T
+    value:      923.0
+
+  reflections: 1              # 1 reflection is sufficient for cylinder geometry
+
+mode_settings:
+
+  solidification:
+    timestep:          1.0e-4
+    tracking:          Volume
+    output_frequency:  50
+    secondary:         false
+    sol_tolerance:     1.0e-3
+    sol_max_iter:      10
+
+  snapshots:
+    times: [5.0e-4, 2.0e-3, 5.0e-3]
+
+  t_history:
+    timestep: 1.0e-4
+    probe_points:
+      - [2.5e-3, 1.0e-3,  0.0]     # on-axis, top surface
+      - [2.5e-3, 1.0e-3, -1.0e-3]  # on-axis, 1 mm depth
+
+output:
+  directory: Data
+  fields:    [x, y, z, T, G, V, dTdt]
+  vtk:       true
+
+compute:
+  threads:      4
+  compression:  true
+  r_max:        -1.0
+  t_hist:       1.0e-9
+  p_hist:       1.0e-2

@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python main.py)",
+      "Bash(python main.py inputs/config_IN718.yaml)",
+      "Bash(python -c ' *)",
+      "Bash(pip install *)",
+      "mcp__visualize__show_widget",
+      "Bash(ls \"C:\\\\3DThesis-proj\\\\claudecodeGenerated\\\\\" && echo \"---\" && ls \"C:\\\\3DThesis-proj\\\\\")"
+    ]
+  }
+}
