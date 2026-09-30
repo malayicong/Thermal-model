@@ -224,3 +224,25 @@ python main.py inputs/config_cylinder_example.yaml
 **Output** (in `Data/` by default):
 - `<name>.csv` — space-delimited, active points, all requested fields
 - `<name>.vtr` — open in ParaView for 3D visualization
+
+---
+
+### Session 2 — 2026-09-30 — Vibenite 290 thermal history for TC-PRISMA / DICTRA
+
+Goal: input T(t) for carbide evolution (as-built vs heat-treated) in a Ø30 × 25 mm
+Vibenite 290 cylinder. Build log unavailable; known: T_build = 850 °C, layer 160 µm,
+batch VED ≈ 36 J/mm³ (recommended: 273 W, 122 mm/s, 0.2 mm → 70 J/mm³).
+
+- `inputs/config_Vibenite290.yaml` — template (material values are estimates; replace
+  k/cp/rho/T_liq with Thermo-Calc values for the real composition).
+- `tools/vibenite290_layer_history.py` — simulates a hatch patch (30 mm lines, ±3 mm)
+  and records T(t) down to 1 mm depth; probe at n × 160 µm = spike from the n-th
+  layer above. Scenarios: `ref` (70 J/mm³) and three ways to reach 36 J/mm³
+  (`A_speed`, `B_power`, `C_offset`) since the changed parameter is unknown.
+- `tools/vibenite290_prisma_profile.py` — last solidification → sub-liquidus spikes →
+  hold at T_build until build end → assumed cool-down → optional heat treatment;
+  writes `Data/vibenite290/profile_<scenario>_h<height>mm.csv` for Prisma.
+
+Limits: constant properties, no latent heat, no top-surface radiation in T_history,
+semi-infinite domain → melt depth and heat accumulation are upper estimates.
+Layer time (default 60 s) and cool-down (τ = 3.3 h) are assumptions.

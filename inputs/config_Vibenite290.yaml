@@ -1,0 +1,114 @@
+# ============================================================
+#  EBM Thermal Modeling Tool — Simulation Configuration
+#  Material: Vibenite 290 (high-carbon high-speed steel), EBM
+#
+#  Template used by tools/vibenite290_layer_history.py, which writes one
+#  config + path CSV per process scenario into inputs/vibenite290/.
+#  It can also be run directly:  python main.py inputs/config_Vibenite290.yaml
+# ============================================================
+
+simulation:
+  name: EBM_Vibenite290_ref
+  mode: T_history             # Snapshots | Solidification | T_history
+
+# ------------------------------------------------------------
+# Material properties
+# NOTE: k / cp / rho / T_liq are ESTIMATES for a high-C, high-alloy
+# tool steel at ~850-1000 C. Replace with Thermo-Calc (or measured)
+# values for your actual powder composition.
+# ------------------------------------------------------------
+material:
+  T_init: 1123.0              # K  build (preheat) temperature, 850 C (operator)
+  T_liq:  1673.0              # K  liquidus ~1400 C (ESTIMATE — compute with Thermo-Calc)
+  k:      25.0                # W/m/K  thermal conductivity at ~1000 K (estimate)
+  cp:     650.0               # J/kg/K specific heat at ~1000 K (estimate, no latent heat)
+  rho:    8100.0              # kg/m^3 density (estimate)
+
+# ------------------------------------------------------------
+# Electron beam — operator-recommended parameters
+#   4.5 mA x ~60 kV = 273 W, 122 mm/s, line offset 0.2 mm,
+#   layer 160 um  ->  VED = 273 / (122 * 0.2 * 0.16) = 70 J/mm^3
+# Beam size / efficiency are typical EBM values (not measured).
+# ------------------------------------------------------------
+beam:
+  power:      273             # W
+  efficiency: 0.85            # –   absorption efficiency (assumed)
+  width_x:    250.0e-6        # m   beam half-width in x (assumed)
+  width_y:    250.0e-6        # m   beam half-width in y
+  depth_z:    100.0e-6        # m   beam penetration depth (assumed)
+
+# ------------------------------------------------------------
+# Scan path — a single representative line through the probe
+# (the scenario script replaces this with a full hatch patch)
+# ------------------------------------------------------------
+path:
+  - [1, -15, 0, 0, 0, 1.0e-4]   # park beam (power_mod=0)
+  - [0,  15, 0, 0, 1, 0.122]    # one 30 mm line at 122 mm/s
+  - [1,  15, 0, 0, 0, 1.0e-4]   # beam off
+
+# ------------------------------------------------------------
+# Computational domain (only used for Snapshots / Solidification;
+# T_history evaluates the probe points directly)
+# ------------------------------------------------------------
+domain:
+  x: [-16.0e-3, 16.0e-3]      # m
+  y: [-3.0e-3,  3.0e-3]       # m
+  z: [-1.0e-3,  0.0e-3]       # m   zmax=0 is the build surface
+  resolution: 250.0e-6        # m
+  geometry:
+    type: null
+
+# ------------------------------------------------------------
+# Boundary conditions
+# ------------------------------------------------------------
+boundary_conditions:
+  top_surface:
+    type:       radiation
+    emissivity: 0.70
+    T_env:      1123.0        # K
+  side_walls:
+    type:       adiabatic
+  bottom:
+    type:       fixed_T
+    value:      1123.0        # K
+  reflections: 1
+
+# ------------------------------------------------------------
+# Mode-specific settings
+# Probe depths are multiples of the 160 um layer thickness: the probe at
+# depth n*160 um sees the thermal spike a point receives when the n-th
+# layer above it is melted.
+# ------------------------------------------------------------
+mode_settings:
+  solidification:
+    timestep:          1.0e-4
+    tracking:          Volume
+    output_frequency:  100
+    secondary:         false
+    sol_tolerance:     1.0e-3
+    sol_max_iter:      10
+
+  snapshots:
+    times: ['50%']
+
+  t_history:
+    timestep: 2.0e-4            # s
+    probe_points:               # [x_m, y_m, z_m]
+      - [0.0, 0.0,  0.0]
+      - [0.0, 0.0, -0.16e-3]
+      - [0.0, 0.0, -0.32e-3]
+      - [0.0, 0.0, -0.48e-3]
+      - [0.0, 0.0, -0.64e-3]
+      - [0.0, 0.0, -0.80e-3]
+
+output:
+  directory: Data
+  fields:    [x, y, z, T]
+  vtk:       false
+
+compute:
+  threads:      4
+  compression:  true
+  r_max:        -1.0
+  t_hist:       1.0e-9
+  p_hist:       1.0e-2
